@@ -70,4 +70,4 @@ class MismatchDetector:
                 "No major threats identified — maintain structure and focus."
             )
 
-        return threats
+        return threats                      
