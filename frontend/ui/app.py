@@ -186,7 +186,7 @@ if analyse_clicked:
             result = pipeline.run(request)
             st.session_state["result"] = result
             st.session_state["players"] = players
-            st.session_state["current_xi"] = list(result.starting_xi)
+            st.session_state["current_xi"] = [p.dict() if hasattr(p, "dict") else p for p in result.starting_xi]
 
         except Exception as e:
             import traceback
@@ -241,11 +241,15 @@ if "result" in st.session_state:
             lines = [int(x) for x in formation_str.split("-")]
         except:
             lines = [4, 3, 3]
+        
+        def get_pos(p):
+            pos = p.get("position")
+            return pos.value if hasattr(pos, "value") else pos
 
-        gks  = [p for p in current_xi if p.get("position") == "GK"]
-        defs = [p for p in current_xi if p.get("position") == "DEF"]
-        mids = [p for p in current_xi if p.get("position") == "MID"]
-        fwds = [p for p in current_xi if p.get("position") == "FWD"]
+        gks  = [p for p in current_xi if get_pos(p) == "GK"]
+        defs = [p for p in current_xi if get_pos(p) == "DEF"]
+        mids = [p for p in current_xi if get_pos(p) == "MID"]
+        fwds = [p for p in current_xi if get_pos(p) == "FWD"]
 
         position_pools = [defs, mids, fwds]
         rows = [gks[:1] if gks else [None]]
@@ -355,7 +359,7 @@ if "result" in st.session_state:
                         updated_xi.append(None)
 
         if st.button("✅ Apply Changes", use_container_width=True):
-            st.session_state["current_xi"] = [p for p in updated_xi if p]
+            st.session_state["current_xi"] = [p.dict() if hasattr(p, "dict") else p for p in updated_xi if p]
             st.rerun()
 
         # ── Bench ──────────────────────────────────────────────

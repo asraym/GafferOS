@@ -22,7 +22,8 @@ class InputValidator:
             "last_5_results": [r.value for r in data.last_5_results],
             "goals_scored_last_5": data.goals_scored_last_5,
             "goals_conceded_last_5": data.goals_conceded_last_5,
-            "players": [p.dict() for p in data.players] if data.players else [],
+            "players": [{k: (v.value if hasattr(v, "value") else v) for k, v in p.dict().items()} for p in data.players]
+             if data.players else [],
 
             # Opponent — use neutral defaults if not provided
             "opponent_last_5_results": (
