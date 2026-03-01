@@ -3,27 +3,66 @@ from typing import Optional, List
 from enum import Enum
 
 
-# ── Enums ──────────────────────────────────────────────────────
 class DataTier(str, Enum):
     TIER_1 = "tier_1"
     TIER_2 = "tier_2"
 
 
 class MatchResult(str, Enum):
-    WIN = "W"
+    WIN  = "W"
     DRAW = "D"
     LOSS = "L"
 
 
-# ── Player ─────────────────────────────────────────────────────
+class BroadPosition(str, Enum):
+    GK  = "GK"
+    DEF = "DEF"
+    MID = "MID"
+    FWD = "FWD"
+
+
+class SpecificPosition(str, Enum):
+    GK  = "GK"
+    CB  = "CB"
+    RB  = "RB"
+    LB  = "LB"
+    RWB = "RWB"
+    LWB = "LWB"
+    CDM = "CDM"
+    CM  = "CM"
+    CAM = "CAM"
+    RM  = "RM"
+    LM  = "LM"
+    RW  = "RW"
+    LW  = "LW"
+    ST  = "ST"
+    CF  = "CF"
+    SS  = "SS"
+
+
+POSITION_MAP = {
+    BroadPosition.GK:  [SpecificPosition.GK],
+    BroadPosition.DEF: [SpecificPosition.CB, SpecificPosition.RB,
+                        SpecificPosition.LB, SpecificPosition.RWB,
+                        SpecificPosition.LWB],
+    BroadPosition.MID: [SpecificPosition.CDM, SpecificPosition.CM,
+                        SpecificPosition.CAM, SpecificPosition.RM,
+                        SpecificPosition.LM],
+    BroadPosition.FWD: [SpecificPosition.RW, SpecificPosition.LW,
+                        SpecificPosition.ST, SpecificPosition.CF,
+                        SpecificPosition.SS],
+}
+
+
 class Player(BaseModel):
     name: str
-    position: str                         # GK, DEF, MID, FWD
+    position: BroadPosition
+    specific_position: SpecificPosition
+    secondary_position: Optional[SpecificPosition] = None
     available: bool
-    fitness_score: Optional[float] = 1.0  # 0.0 to 1.0
+    fitness_score: Optional[float] = 1.0
 
 
-# ── Tier 1 Input ───────────────────────────────────────────────
 class Tier1Input(BaseModel):
     team_name: str
     opponent_name: str
@@ -36,7 +75,6 @@ class Tier1Input(BaseModel):
     opponent_goals_conceded: Optional[int] = None
 
 
-# ── Tier 2 Input ───────────────────────────────────────────────
 class Tier2Input(Tier1Input):
     avg_possession: float = Field(..., ge=0, le=100)
     avg_passing_accuracy: float = Field(..., ge=0, le=100)
@@ -49,14 +87,12 @@ class Tier2Input(Tier1Input):
     opp_avg_defensive_errors: Optional[float] = None
 
 
-# ── Request Wrapper ────────────────────────────────────────────
 class MatchAnalysisRequest(BaseModel):
     tier: DataTier
     tier1_data: Optional[Tier1Input] = None
     tier2_data: Optional[Tier2Input] = None
 
 
-# ── Output ─────────────────────────────────────────────────────
 class TacticalReport(BaseModel):
     team_name: str
     opponent_name: str
@@ -75,3 +111,5 @@ class TacticalReport(BaseModel):
     fatigue_risk_score: float
     tactical_stability_score: float
     reasoning: str
+    starting_xi: List[dict] = []
+    bench: List[dict] = []

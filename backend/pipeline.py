@@ -8,6 +8,7 @@ from engine.press_engine import PressEngine
 from engine.mismatch_detector import MismatchDetector
 from engine.rotation_advisor import RotationAdvisor
 from engine.explainer import Explainer
+from engine.squad_selector import SquadSelector
 
 
 class TactIQPipeline:
@@ -25,6 +26,7 @@ class TactIQPipeline:
         self.mismatch = MismatchDetector()
         self.rotation = RotationAdvisor()
         self.explainer = Explainer()
+        self.squad_selector = SquadSelector()
 
         # ML — None until Phase 2
         self.ml_model = ml_model
@@ -44,12 +46,17 @@ class TactIQPipeline:
         data = self.formation.select(data)
         data = self.press.recommend(data)
         data = self.mismatch.detect(data)
+
+        # Step 5 - Auto-select best XI and bench
+        data = self.squad_selector.select(data)
+
+        #Step 6 - Rotation advice
         data = self.rotation.advise(data)
 
-        # Step 5 — Build explanation
+        # Step 7 — Build explanation
         data = self.explainer.explain(data)
 
-        # Step 6 — ML prediction (Phase 2)
+        # Step 8 — ML prediction (Phase 2)
         win_prob = draw_prob = loss_prob = None
         if self.ml_model is not None:
             try:
@@ -63,7 +70,7 @@ class TactIQPipeline:
             except Exception as e:
                 print(f"[ML] Prediction failed: {e}")
 
-        # Step 7 — Return report
+        # Step 9 — Return report
         return TacticalReport(
             team_name=data["team_name"],
             opponent_name=data["opponent_name"],
