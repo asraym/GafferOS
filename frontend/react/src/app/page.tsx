@@ -1,5 +1,5 @@
 'use client'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import MatchForm from '@/components/MatchForm'
 import SquadBuilder from '@/components/SquadBuilder'
@@ -17,21 +17,47 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 export default function HomePage() {
-  const [tier, setTier] = useState<DataTier>('tier_1')
+  const [mounted, setMounted] = useState(false)
+
+  const [tier, setTier] = useState<DataTier>(() => {
+    if (typeof window === 'undefined') return 'tier_1'
+    return (localStorage.getItem('gafferos_tier') as DataTier) ?? 'tier_1'
+  })
+
   const [activeTab, setActiveTab] = useState<Tab>('match')
-  const [matchData, setMatchData] = useState<Tier1Data | Tier2Data | null>(null)
-  const [players, setPlayers] = useState<Player[]>([])
+
+  const [matchData, setMatchData] = useState<Tier1Data | Tier2Data | null>(() => {
+    if (typeof window === 'undefined') return null
+    const saved = localStorage.getItem('gafferos_match')
+    return saved ? JSON.parse(saved) : null
+  })
+
+  const [players, setPlayers] = useState<Player[]>(() => {
+    if (typeof window === 'undefined') return []
+    const saved = localStorage.getItem('gafferos_squad')
+    return saved ? JSON.parse(saved) : []
+  })
+
   const [report, setReport] = useState<TacticalReport | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => { setMounted(true) }, [])
+
   const handleMatchChange = useCallback((data: Tier1Data | Tier2Data) => {
     setMatchData(data)
+    localStorage.setItem('gafferos_match', JSON.stringify(data))
   }, [])
 
   const handleSquadChange = useCallback((p: Player[]) => {
     setPlayers(p)
+    localStorage.setItem('gafferos_squad', JSON.stringify(p))
   }, [])
+
+  function handleTierChange(t: DataTier) {
+    setTier(t)
+    localStorage.setItem('gafferos_tier', t)
+  }
 
   async function handleAnalyse() {
     if (!matchData) {
@@ -57,6 +83,9 @@ export default function HomePage() {
     }
   }
 
+  if (!mounted) return null
+
+
   return (
     <>
       <Navbar />
@@ -80,7 +109,7 @@ export default function HomePage() {
                 <div className={styles.tierButtons}>
                   <button
                     className={`${styles.tierBtn} ${tier === 'tier_1' ? styles.tierBtnActive : ''}`}
-                    onClick={() => setTier('tier_1')}
+                    onClick={() => handleTierChange('tier_1')}
                     type="button"
                   >
                     <span className={styles.tierNum}>T1</span>
@@ -88,7 +117,7 @@ export default function HomePage() {
                   </button>
                   <button
                     className={`${styles.tierBtn} ${tier === 'tier_2' ? styles.tierBtnActive : ''}`}
-                    onClick={() => setTier('tier_2')}
+                    onClick={() => handleTierChange('tier_2')}
                     type="button"
                   >
                     <span className={styles.tierNum}>T2</span>

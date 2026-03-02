@@ -29,26 +29,26 @@ function fitnessColour(f: number): string {
 export default function SquadBuilder({ players, onChange }: Props) {
   const [count, setCount] = useState(players.length || 0)
 
-  function handleCount(n: number) {
-    setCount(n)
-    if (n > players.length) {
-      const added = Array.from({ length: n - players.length }, (_, i) =>
-        makePlayer(players.length + i)
-      )
-      onChange([...players, ...added])
-    } else {
-      onChange(players.slice(0, n))
-    }
+function handleCount(n: number) {
+  setCount(n)
+  if (n > players.length) {
+    const added = Array.from({ length: n - players.length }, (_, i) =>
+      makePlayer(players.length + i)
+    )
+    onChange([...players, ...added])
+  } else {
+    onChange(players.slice(0, n))
   }
+}
 
-  function updatePlayer(idx: number, patch: Partial<Player>) {
-    const next = players.map((p, i) => (i === idx ? { ...p, ...patch } : p))
-    if (patch.position) {
-      next[idx].specific_position = POSITION_MAP[patch.position as BroadPosition][0]
-      next[idx].secondary_position = null
-    }
-    onChange(next)
+function updatePlayer(idx: number, patch: Partial<Player>) {
+  const next = players.map((p, i) => (i === idx ? { ...p, ...patch } : p))
+  if (patch.position) {
+    next[idx].specific_position = POSITION_MAP[patch.position as BroadPosition][0]
+    next[idx].secondary_position = null
   }
+  onChange(next)
+}
 
   function removePlayer(idx: number) {
     const next = players.filter((_, i) => i !== idx)
@@ -99,11 +99,24 @@ export default function SquadBuilder({ players, onChange }: Props) {
             const otherSpecifics: SpecificPosition[] = ALL_SPECIFICS.filter(s => s !== p.specific_position)
             const fColour = fitnessColour(p.fitness_score)
 
-            return (
-              <div key={i} className={styles.row}>
-                <input type="text" value={p.name}
-                  onChange={e => updatePlayer(i, { name: e.target.value })}
-                  className={styles.nameInput} />
+        return (
+          <div key={i} className={styles.row}>
+            <div className={styles.nameCell}>
+              <input
+                type="text"
+                value={p.name}
+                onChange={e => updatePlayer(i, { name: e.target.value })}
+                className={styles.nameInput}
+              />
+              <a
+                href={`/players/${encodeURIComponent(p.name)}?pos=${p.position}&spec=${p.specific_position}`}
+                className={styles.profileLink}
+                title="View profile"
+              >
+                ↗
+              </a>
+            </div>
+
 
                 <select value={p.position}
                   onChange={e => updatePlayer(i, { position: e.target.value as BroadPosition })}>

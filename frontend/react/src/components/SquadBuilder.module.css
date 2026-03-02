@@ -23,3 +23,6 @@
 .availYes { font-family: var(--font-mono); font-size: 0.7rem; color: var(--green); }
 .availNo { font-family: var(--font-mono); font-size: 0.7rem; color: var(--red); }
 .removeBtn { padding: 6px 10px !important; font-size: 0.75rem !important; line-height: 1; }
+.nameCell { display: flex; align-items: center; gap: 6px; }
+.profileLink { font-family: var(--font-mono); font-size: 0.75rem; color: var(--amber); text-decoration: none; opacity: 0.6; transition: opacity var(--transition); flex-shrink: 0;}
+.profileLink:hover { opacity: 1;}
