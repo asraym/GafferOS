@@ -13,14 +13,19 @@ class MetricCalculator:
     # ── Offensive Strength ─────────────────────────────────────
     def _offensive_strength(self, d: dict) -> float:
         """Higher = more attacking threat."""
-        goals = min(d["goals_scored_last_5"] / 15.0, 1.0)
+        goals = d.get("goals_scored_last_5") or 0
 
-        if d["avg_shots_per_match"] is not None:
-            shots = min(d["avg_shots_per_match"] / 20.0, 1.0)
-            on_target = min(d["avg_shots_on_target"] / 10.0, 1.0)
-            return round(goals * 0.4 + shots * 0.35 + on_target * 0.25, 3)
+        goals_component = min(goals / 15.0, 1.0)
 
-        return round(goals, 3)
+        shots = d.get("avg_shots_per_match")
+        on_target = d.get("avg_shots_on_target")
+
+        if shots is not None and on_target is not None:
+            shots_component   = min(shots / 20.0, 1.0)
+            target_component  = min(on_target / 10.0, 1.0)
+            return round(goals_component * 0.4 + shots_component * 0.35 + target_component * 0.25, 3)
+
+        return round(goals_component, 3)
 
     # ── Defensive Vulnerability ────────────────────────────────
     def _defensive_vulnerability(self, d: dict) -> float:
