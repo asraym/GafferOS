@@ -155,7 +155,7 @@ export default function HomePage() {
           <div className={styles.content}>
             {activeTab === 'match' && (
               <div className="fade-in-up">
-                <MatchForm tier={tier} onChange={handleMatchChange} />
+                <MatchForm tier={tier} onChange={handleMatchChange} initialData={matchData} />
               </div>
             )}
             {activeTab === 'squad' && (

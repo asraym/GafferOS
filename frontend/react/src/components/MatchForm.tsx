@@ -6,6 +6,7 @@ import styles from './MatchForm.module.css'
 type Props = {
   tier: 'tier_1' | 'tier_2'
   onChange: (data: Tier1Data | Tier2Data) => void
+  initialData?: Tier1Data | Tier2Data | null
 }
 
 const RESULT_OPTIONS: MatchResult[] = ['W', 'D', 'L']
@@ -13,26 +14,28 @@ const RESULT_OPTIONS: MatchResult[] = ['W', 'D', 'L']
 const DEFAULT_RESULTS: MatchResult[] = ['W', 'D', 'W', 'L', 'W']
 const DEFAULT_OPP_RESULTS: MatchResult[] = ['L', 'W', 'D', 'L', 'D']
 
-export default function MatchForm({ tier, onChange }: Props) {
-  const [teamName, setTeamName] = useState('GafferOS FC')
-  const [oppName, setOppName] = useState('Riverside United')
-  const [results, setResults] = useState<MatchResult[]>(DEFAULT_RESULTS)
-  const [goalsScored, setGoalsScored] = useState(9)
-  const [goalsConceded, setGoalsConceded] = useState(5)
-  const [oppResults, setOppResults] = useState<MatchResult[]>(DEFAULT_OPP_RESULTS)
-  const [oppGoalsScored, setOppGoalsScored] = useState(5)
-  const [oppGoalsConceded, setOppGoalsConceded] = useState(8)
+export default function MatchForm({ tier, onChange, initialData }: Props) {
+  const d = initialData as any
 
-  // Tier 2 stats
-  const [possession, setPossession] = useState(54)
-  const [passing, setPassing] = useState(79)
-  const [shots, setShots] = useState(13)
-  const [sot, setSot] = useState(6)
-  const [errors, setErrors] = useState(1.2)
-  const [oppPossession, setOppPossession] = useState(46)
-  const [oppPassing, setOppPassing] = useState(70)
-  const [oppShots, setOppShots] = useState(10)
-  const [oppErrors, setOppErrors] = useState(2.4)
+  const [teamName, setTeamName] = useState(d?.team_name ?? 'GafferOS FC')
+  const [oppName, setOppName] = useState(d?.opponent_name ?? 'Riverside United')
+  const [results, setResults] = useState<MatchResult[]>(d?.last_5_results ?? DEFAULT_RESULTS)
+  const [goalsScored, setGoalsScored] = useState(d?.goals_scored_last_5 ?? 9)
+  const [goalsConceded, setGoalsConceded] = useState(d?.goals_conceded_last_5 ?? 5)
+  const [oppResults, setOppResults] = useState<MatchResult[]>(d?.opponent_last_5_results ?? DEFAULT_OPP_RESULTS)
+  const [oppGoalsScored, setOppGoalsScored] = useState(d?.opponent_goals_scored ?? 5)
+  const [oppGoalsConceded, setOppGoalsConceded] = useState(d?.opponent_goals_conceded ?? 8)
+
+  // Tier 2
+  const [possession, setPossession] = useState(d?.avg_possession ?? 54)
+  const [passing, setPassing] = useState(d?.avg_passing_accuracy ?? 79)
+  const [shots, setShots] = useState(d?.avg_shots_per_match ?? 13)
+  const [sot, setSot] = useState(d?.avg_shots_on_target ?? 6)
+  const [errors, setErrors] = useState(d?.avg_defensive_errors ?? 1.2)
+  const [oppPossession, setOppPossession] = useState(d?.opp_avg_possession ?? 46)
+  const [oppPassing, setOppPassing] = useState(d?.opp_avg_passing_accuracy ?? 70)
+  const [oppShots, setOppShots] = useState(d?.opp_avg_shots_per_match ?? 10)
+  const [oppErrors, setOppErrors] = useState(d?.opp_avg_defensive_errors ?? 2.4)
 
   function updateResult(idx: number, val: MatchResult) {
     const next = [...results]
