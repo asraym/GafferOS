@@ -1,222 +1,314 @@
 'use client'
-import { useState, useCallback, useEffect } from 'react'
-import Navbar from '@/components/Navbar'
-import MatchForm from '@/components/MatchForm'
-import SquadBuilder from '@/components/SquadBuilder'
-import ReportPanel from '@/components/ReportPanel'
+import { useState, useEffect } from 'react'
+import { storage } from '@/lib/storage'
 import { analyseMatch } from '@/lib/api'
-import type { TacticalReport, Tier1Data, Tier2Data, Player, DataTier } from '@/types/gafferos'
+import { TacticalReport, MatchData, Player, MatchResult } from '@/types/gafferos'
 import styles from './page.module.css'
 
-type Tab = 'match' | 'squad' | 'report'
+const DEFAULT_MATCH: MatchData = {
+  team_name: '',
+  opponent_name: '',
+  last_5_results: [],
+  goals_scored_last_5: 0,
+  goals_conceded_last_5: 0,
+}
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'match', label: 'Match Setup', icon: '📋' },
-  { id: 'squad', label: 'Squad',       icon: '👤' },
-  { id: 'report', label: 'Report',     icon: '📊' },
-]
+function IndexBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className={styles.indexBar}>
+      <div className={styles.indexBarTop}>
+        <span className={styles.indexLabel}>{label}</span>
+        <span className={styles.indexValue}>{(value * 100).toFixed(0)}</span>
+      </div>
+      <div className={styles.indexTrack}>
+        <div className={styles.indexFill} style={{ width: `${value * 100}%`, background: color }} />
+      </div>
+    </div>
+  )
+}
 
-export default function HomePage() {
-  const [mounted, setMounted] = useState(false)
+function ResultPill({ r }: { r: MatchResult }) {
+  const map = { W: styles.win, D: styles.draw, L: styles.loss }
+  return <span className={`${styles.pill} ${map[r]}`}>{r}</span>
+}
 
-  const [tier, setTier] = useState<DataTier>(() => {
-    if (typeof window === 'undefined') return 'tier_1'
-    return (localStorage.getItem('gafferos_tier') as DataTier) ?? 'tier_1'
-  })
+function RiskBadge({ level }: { level: string }) {
+  const map: Record<string, string> = { High: styles.riskHigh, Medium: styles.riskMed, Low: styles.riskLow }
+  return <span className={`${styles.risk} ${map[level] || ''}`}>{level} Risk</span>
+}
 
-  const [activeTab, setActiveTab] = useState<Tab>('match')
-
-  const [matchData, setMatchData] = useState<Tier1Data | Tier2Data | null>(() => {
-    if (typeof window === 'undefined') return null
-    const saved = localStorage.getItem('gafferos_match')
-    return saved ? JSON.parse(saved) : null
-  })
-
-  const [players, setPlayers] = useState<Player[]>(() => {
-    if (typeof window === 'undefined') return []
-    const saved = localStorage.getItem('gafferos_squad')
-    return saved ? JSON.parse(saved) : []
-  })
-
+export default function Dashboard() {
+  const [match, setMatch] = useState<MatchData>(DEFAULT_MATCH)
+  const [players, setPlayers] = useState<Player[]>([])
+  const [tier, setTier] = useState<'tier_1' | 'tier_2'>('tier_1')
   const [report, setReport] = useState<TacticalReport | null>(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [results, setResults] = useState<MatchResult[]>([])
 
-  useEffect(() => { setMounted(true) }, [])
-
-  const handleMatchChange = useCallback((data: Tier1Data | Tier2Data) => {
-    setMatchData(data)
-    localStorage.setItem('gafferos_match', JSON.stringify(data))
+  useEffect(() => {
+    const m = storage.getMatch()
+    if (m) { setMatch(m); setResults(m.last_5_results || []) }
+    setPlayers(storage.getPlayers())
+    setTier(storage.getTier())
+    setReport(storage.getReport())
   }, [])
 
-  const handleSquadChange = useCallback((p: Player[]) => {
-    setPlayers(p)
-    localStorage.setItem('gafferos_squad', JSON.stringify(p))
-  }, [])
-
-  function handleTierChange(t: DataTier) {
-    setTier(t)
-    localStorage.setItem('gafferos_tier', t)
+  function toggleResult(r: MatchResult) {
+    setResults(prev => {
+      const next = prev.length < 5 ? [...prev, r] : prev
+      const updated = { ...match, last_5_results: next }
+      setMatch(updated)
+      storage.saveMatch(updated)
+      return next
+    })
   }
 
-  async function handleAnalyse() {
-    if (!matchData) {
-      setError('Please fill in the match setup first.')
-      setActiveTab('match')
+  function clearResults() {
+    setResults([])
+    const updated = { ...match, last_5_results: [] }
+    setMatch(updated)
+    storage.saveMatch(updated)
+  }
+
+  function updateMatch(field: keyof MatchData, value: unknown) {
+    const updated = { ...match, [field]: value }
+    setMatch(updated as MatchData)
+    storage.saveMatch(updated as MatchData)
+  }
+
+  async function runAnalysis() {
+    if (!match.team_name || !match.opponent_name || results.length === 0) {
+      setError('Team name, opponent, and at least one result required.')
       return
     }
-    setError(null)
-    setLoading(true)
-    const payload = { ...matchData, players }
+    setLoading(true); setError('')
     try {
-      const result = await analyseMatch(
-        tier === 'tier_1'
-          ? { tier: 'tier_1', tier1_data: payload as Tier1Data }
-          : { tier: 'tier_2', tier2_data: payload as Tier2Data }
-      )
-      setReport(result)
-      setActiveTab('report')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed. Is the backend running?')
-    } finally {
-      setLoading(false)
-    }
+      const r = await analyseMatch({ ...match, last_5_results: results }, players, tier)
+      setReport(r)
+      storage.saveReport(r)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally { setLoading(false) }
   }
 
-  if (!mounted) return null
-
+  const avgFitness = players.length
+    ? players.reduce((s, p) => s + (p.fitness_score ?? 1), 0) / players.length
+    : null
 
   return (
-    <>
-      <Navbar />
-      <main className={styles.main}>
-        <div className="container">
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <div>
+          <div className={styles.eyebrow}>Team Dashboard</div>
+          <h1 className={styles.title}>
+            {match.team_name || 'Your Club'}
+          </h1>
+        </div>
+        <div className={styles.tierToggle}>
+          {(['tier_1', 'tier_2'] as const).map(t => (
+            <button
+              key={t}
+              className={`${styles.tierBtn} ${tier === t ? styles.tierActive : ''}`}
+              onClick={() => { setTier(t); storage.saveTier(t) }}
+            >
+              {t === 'tier_1' ? 'T1 Basic' : 'T2 Full Stats'}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {/* Hero */}
-          <div className={styles.hero}>
-            <div className={styles.heroLeft}>
-              <h1 className={styles.heroTitle}>
-                Tactical<br />
-                <span className={styles.heroAccent}>Intelligence</span>
-              </h1>
-              <p className={styles.heroSub}>
-                Elite analytics for grassroots clubs. Enter your match data, get a full tactical report.
-              </p>
+      <div className={styles.grid}>
+        {/* ── Left col: input ── */}
+        <div className={styles.leftCol}>
+
+          {/* Match Setup Card */}
+          <div className={styles.card}>
+            <div className={styles.cardLabel}>Match Setup</div>
+            <div className={styles.fieldRow}>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Your Team</label>
+                <input
+                  className={styles.input}
+                  placeholder="FC United"
+                  value={match.team_name}
+                  onChange={e => updateMatch('team_name', e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Opponent</label>
+                <input
+                  className={styles.input}
+                  placeholder="Rivals FC"
+                  value={match.opponent_name}
+                  onChange={e => updateMatch('opponent_name', e.target.value)}
+                />
+              </div>
             </div>
-            <div className={styles.heroRight}>
-              <div className={styles.tierToggle}>
-                <div className={styles.tierLabel}>Data Tier</div>
-                <div className={styles.tierButtons}>
-                  <button
-                    className={`${styles.tierBtn} ${tier === 'tier_1' ? styles.tierBtnActive : ''}`}
-                    onClick={() => handleTierChange('tier_1')}
-                    type="button"
-                  >
-                    <span className={styles.tierNum}>T1</span>
-                    <span className={styles.tierName}>Basic</span>
-                  </button>
-                  <button
-                    className={`${styles.tierBtn} ${tier === 'tier_2' ? styles.tierBtnActive : ''}`}
-                    onClick={() => handleTierChange('tier_2')}
-                    type="button"
-                  >
-                    <span className={styles.tierNum}>T2</span>
-                    <span className={styles.tierName}>Full Stats</span>
-                  </button>
+
+            <div className={styles.fieldLabel} style={{marginTop: 20}}>Last 5 Results</div>
+            <div className={styles.resultButtons}>
+              {(['W','D','L'] as MatchResult[]).map(r => (
+                <button key={r} className={styles.resultBtn} onClick={() => toggleResult(r)}>{r}</button>
+              ))}
+              <button className={styles.clearBtn} onClick={clearResults}>Clear</button>
+            </div>
+            <div className={styles.resultStrip}>
+              {results.length === 0
+                ? <span className={styles.noResults}>No results yet</span>
+                : results.map((r, i) => <ResultPill key={i} r={r} />)
+              }
+            </div>
+
+            <div className={styles.fieldRow} style={{marginTop: 16}}>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Goals Scored</label>
+                <input type="number" min={0} className={styles.input}
+                  value={match.goals_scored_last_5}
+                  onChange={e => updateMatch('goals_scored_last_5', +e.target.value)} />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Goals Conceded</label>
+                <input type="number" min={0} className={styles.input}
+                  value={match.goals_conceded_last_5}
+                  onChange={e => updateMatch('goals_conceded_last_5', +e.target.value)} />
+              </div>
+            </div>
+
+            {tier === 'tier_2' && (
+              <div className={styles.tier2Fields}>
+                <div className={styles.cardLabel} style={{marginBottom: 12}}>Advanced Stats</div>
+                {[
+                  ['avg_possession', 'Avg Possession %'],
+                  ['avg_passing_accuracy', 'Passing Accuracy %'],
+                  ['avg_shots_per_match', 'Shots per Match'],
+                  ['avg_shots_on_target', 'Shots on Target'],
+                  ['avg_defensive_errors', 'Defensive Errors'],
+                ].map(([key, label]) => (
+                  <div key={key} className={styles.field}>
+                    <label className={styles.fieldLabel}>{label}</label>
+                    <input type="number" min={0} className={styles.input}
+                      value={(match as Record<string, unknown>)[key] as number || ''}
+                      onChange={e => updateMatch(key as keyof MatchData, +e.target.value)} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Squad Fitness Card */}
+          <div className={styles.card}>
+            <div className={styles.cardLabel}>Squad Overview</div>
+            {players.length === 0 ? (
+              <p className={styles.emptyNote}>No players added yet. Go to the Players page to build your squad.</p>
+            ) : (
+              <>
+                <div className={styles.fitnessHeader}>
+                  <span className={styles.fitnessTitle}>Avg Fitness</span>
+                  <span className={styles.fitnessPct}>{avgFitness !== null ? `${(avgFitness * 100).toFixed(0)}%` : '—'}</span>
                 </div>
-              </div>
+                <div className={styles.fitnessTrack}>
+                  <div className={styles.fitnessFill} style={{ width: `${(avgFitness ?? 0) * 100}%` }} />
+                </div>
+                <div className={styles.playerList}>
+                  {players.slice(0, 8).map(p => (
+                    <div key={p.name} className={styles.playerRow}>
+                      <div className={styles.playerInfo}>
+                        <span className={styles.playerPos}>{p.specific_position}</span>
+                        <span className={styles.playerName}>{p.name}</span>
+                      </div>
+                      <div className={styles.playerFitness}>
+                        <div className={styles.miniTrack}>
+                          <div className={styles.miniFill}
+                            style={{
+                              width: `${(p.fitness_score ?? 1) * 100}%`,
+                              background: (p.fitness_score ?? 1) > 0.65 ? 'var(--green)' : (p.fitness_score ?? 1) > 0.4 ? 'var(--amber)' : 'var(--red)'
+                            }} />
+                        </div>
+                        <span className={styles.miniFitPct}>{((p.fitness_score ?? 1) * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                  {players.length > 8 && (
+                    <div className={styles.moreNote}>+{players.length - 8} more players</div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {error && <div className={styles.error}>{error}</div>}
+
+          <button className={styles.analyseBtn} onClick={runAnalysis} disabled={loading}>
+            {loading ? 'Analysing...' : 'Run Analysis →'}
+          </button>
+        </div>
+
+        {/* ── Right col: report ── */}
+        <div className={styles.rightCol}>
+          {!report ? (
+            <div className={styles.emptyReport}>
+              <div className={styles.emptyIcon}>⬡</div>
+              <div className={styles.emptyTitle}>No Analysis Yet</div>
+              <p className={styles.emptyText}>Fill in match data and hit Run Analysis to generate your tactical report.</p>
             </div>
-          </div>
+          ) : (
+            <div className={styles.report}>
+              {/* Report Header */}
+              <div className={styles.reportHeader}>
+                <div>
+                  <div className={styles.reportTeams}>{report.team_name} <span>vs</span> {report.opponent_name}</div>
+                  <RiskBadge level={report.match_risk_level} />
+                </div>
+                <div className={styles.formation}>{report.recommended_formation}</div>
+              </div>
 
-          {/* Tabs */}
-          <div className={styles.tabs}>
-            {TABS.map(t => (
-              <button
-                key={t.id}
-                className={`${styles.tab} ${activeTab === t.id ? styles.tabActive : ''} ${t.id === 'report' && !report ? styles.tabDisabled : ''}`}
-                onClick={() => t.id !== 'report' || report ? setActiveTab(t.id) : null}
-                type="button"
-              >
-                <span>{t.icon}</span>
-                <span>{t.label}</span>
-                {t.id === 'report' && report && <span className={styles.tabDot} />}
-              </button>
-            ))}
-          </div>
+              {/* KPI Strip */}
+              <div className={styles.kpiStrip}>
+                {[
+                  { label: 'Press', value: report.press_intensity },
+                  { label: 'Line',  value: report.defensive_line },
+                  { label: 'Focus', value: report.tactical_focus },
+                ].map(k => (
+                  <div key={k.label} className={styles.kpi}>
+                    <div className={styles.kpiLabel}>{k.label}</div>
+                    <div className={styles.kpiValue}>{k.value}</div>
+                  </div>
+                ))}
+              </div>
 
-          {/* Error */}
-          {error && (
-            <div className="alert alert-error" style={{ marginBottom: 20 }}>
-              <span>⚠</span><span>{error}</span>
+              {/* Indices */}
+              <div className={styles.indices}>
+                <div className={styles.cardLabel}>Tactical Indices</div>
+                <IndexBar label="Offensive Strength" value={report.offensive_strength_index} color="var(--amber)" />
+                <IndexBar label="Defensive Vulnerability" value={report.defensive_vulnerability_index} color="var(--red)" />
+                <IndexBar label="Fatigue Risk" value={report.fatigue_risk_score} color="var(--yellow)" />
+                <IndexBar label="Tactical Stability" value={report.tactical_stability_score} color="var(--green)" />
+              </div>
+
+              {/* Rotation */}
+              {report.rotation_suggestions?.length > 0 && (
+                <div className={styles.rotations}>
+                  <div className={styles.cardLabel}>Rotation Notes</div>
+                  {report.rotation_suggestions.map((s, i) => (
+                    <div key={i} className={styles.rotationItem}>
+                      <span className={styles.rotationDot} />
+                      {s}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Reasoning */}
+              <div className={styles.reasoning}>
+                <div className={styles.cardLabel}>Tactical Reasoning</div>
+                <p className={styles.reasoningText}>{report.reasoning}</p>
+              </div>
             </div>
           )}
-
-          {/* Content */}
-          <div className={styles.content}>
-            {activeTab === 'match' && (
-              <div className="fade-in-up">
-                <MatchForm tier={tier} onChange={handleMatchChange} initialData={matchData} />
-              </div>
-            )}
-            {activeTab === 'squad' && (
-              <div className="fade-in-up">
-                <SquadBuilder players={players} onChange={handleSquadChange} />
-              </div>
-            )}
-            {activeTab === 'report' && report && (
-              <div className="fade-in-up">
-                <ReportPanel report={report} />
-              </div>
-            )}
-            {activeTab === 'report' && !report && (
-              <div className={styles.noReport}>
-                <span className={styles.noReportIcon}>📊</span>
-                <p>No report generated yet.</p>
-                <p className={styles.noReportSub}>Fill in the Match Setup, then click Analyse.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Analyse bar */}
-          {activeTab !== 'report' && (
-            <div className={styles.analyseBar}>
-              <div className={styles.analyseMeta}>
-                {matchData && (
-                  <span className={styles.readyTag}>
-                    ✓ {matchData.team_name} vs {matchData.opponent_name}
-                  </span>
-                )}
-                {players.length > 0 && (
-                  <span className={styles.readyTag}>
-                    ✓ {players.length} player{players.length > 1 ? 's' : ''} added
-                  </span>
-                )}
-              </div>
-              <button
-                className={`btn btn-primary ${styles.analyseBtn}`}
-                onClick={handleAnalyse}
-                disabled={loading || !matchData}
-                type="button"
-              >
-                {loading ? (
-                  <><span className={styles.spinner} />Analysing…</>
-                ) : (
-                  <>⚡ Analyse Match</>
-                )}
-              </button>
-            </div>
-          )}
-
         </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <div className="container">
-          <span className={styles.footerText}>GafferOS v1.0 — Phase 3</span>
-          <span className={styles.footerSep}>·</span>
-          <span className={styles.footerText}>FastAPI + Next.js</span>
-        </div>
-      </footer>
-    </>
+      </div>
+    </div>
   )
 }
