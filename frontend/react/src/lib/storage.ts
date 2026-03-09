@@ -1,86 +1,32 @@
-import type { Player } from '@/types/gafferos'
+import { Player, MatchData } from '@/types/gafferos'
 
-// ── Extended player with stats and profile ─────────────────────
-export interface PlayerStats {
-  matches_played: number
-  // GK
-  saves?: number
-  clean_sheets?: number
-  // Defender / CDM
-  tackles?: number
-  interceptions?: number
-  blocks?: number
-  // Fullback / Wide
-  crosses?: number
-  dribbles?: number
-  // Midfield / Attack
-  key_passes?: number
-  chances_created?: number
-  assists?: number
-  goals?: number
+const KEYS = {
+  players: 'gafferos_players',
+  match:   'gafferos_match',
+  tier:    'gafferos_tier',
+  report:  'gafferos_report',
 }
 
-export interface PlayerProfile extends Player {
-  stats: PlayerStats
-  photo?: string // base64 or URL — placeholder for now
-}
-
-const STORAGE_KEY = 'gafferos_players'
-
-// ── Read all profiles ──────────────────────────────────────────
-export function loadProfiles(): PlayerProfile[] {
-  if (typeof window === 'undefined') return []
+function safe<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch { return fallback }
 }
 
-// ── Save all profiles ──────────────────────────────────────────
-export function saveProfiles(profiles: PlayerProfile[]): void {
+function save(key: string, value: unknown) {
   if (typeof window === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles))
+  localStorage.setItem(key, JSON.stringify(value))
 }
 
-// ── Get single profile by name ─────────────────────────────────
-export function getProfile(name: string): PlayerProfile | null {
-  return loadProfiles().find(p => p.name === name) ?? null
-}
-
-// ── Upsert single profile ──────────────────────────────────────
-export function upsertProfile(profile: PlayerProfile): void {
-  const all = loadProfiles()
-  const idx = all.findIndex(p => p.name === profile.name)
-  if (idx >= 0) {
-    // Keep existing stats — only update non-stat fields
-    all[idx] = {
-      ...all[idx],
-      name: profile.name,
-      position: profile.position,
-      specific_position: profile.specific_position,
-      secondary_position: profile.secondary_position,
-      available: profile.available,
-      fitness_score: profile.fitness_score,
-      // Never overwrite stats unless explicitly passed with data
-      stats: profile.stats?.matches_played > 0
-        ? profile.stats
-        : all[idx].stats,
-    }
-  } else {
-    all.push(profile)
-  }
-  saveProfiles(all)
-}
-// ── Merge basic Player list with stored profiles ───────────────
-// Called in SquadBuilder to hydrate players with saved stats
-export function hydratePlayers(players: Player[]): PlayerProfile[] {
-  const profiles = loadProfiles()
-  return players.map(p => {
-    const saved = profiles.find(pr => pr.name === p.name)
-    return saved
-      ? { ...saved, ...p, stats: saved.stats ?? { matches_played: 0 } }
-      : { ...p, stats: { matches_played: 0 } }
-  })
+export const storage = {
+  getPlayers: (): Player[] => safe(KEYS.players, []),
+  savePlayers: (p: Player[]) => save(KEYS.players, p),
+  getMatch: (): MatchData | null => safe(KEYS.match, null),
+  saveMatch: (m: MatchData) => save(KEYS.match, m),
+  getTier: (): 'tier_1' | 'tier_2' => safe(KEYS.tier, 'tier_1'),
+  saveTier: (t: string) => save(KEYS.tier, t),
+  getReport: () => safe(KEYS.report, null),
+  saveReport: (r: unknown) => save(KEYS.report, r),
 }
