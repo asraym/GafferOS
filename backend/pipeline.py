@@ -89,4 +89,6 @@ class TactIQPipeline:
             fatigue_risk_score=data["fatigue_risk_score"],
             tactical_stability_score=data["tactical_stability_score"],
             reasoning=data["reasoning"],
+            starting_xi=data.get("starting_xi", []),
+            bench=data.get("bench", []),
         )

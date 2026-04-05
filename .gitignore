@@ -1,0 +1,24 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Models
+backend/models/*.pkl
+
+# Node / Next.js
+frontend/react/node_modules/
+frontend/react/.next/
+frontend/react/.env.local
+frontend/react/out/
+frontend/react/build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

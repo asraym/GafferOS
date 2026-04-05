@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cream:       #e8e4dd;
+  --cream-dark:  #ddd8d0;
+  --warm-white:  #f0ece6;
+  --navy:        #0f1923;
+  --navy-mid:    #1e2d3d;
+  --navy-light:  #2d4057;
+  --amber:       #c8922a;
+  --amber-light: #e8a93a;
+  --amber-pale:  #fdf3e0;
+  --muted:       #6b7280;
+  --muted-light: #9ca3af;
+  --border:      rgba(15,25,35,0.10);
+  --border-mid:  rgba(15,25,35,0.16);
+  --green:       #2d7a4f;
+  --green-bg:    #edf7f1;
+  --red:         #c0392b;
+  --red-bg:      #fdf0ee;
+  --yellow:      #b7791f;
+  --yellow-bg:   #fef9ec;
+  --font-display:'Bebas Neue', sans-serif;
+  --font-body:   'Libre Baskerville', Georgia, serif;
+  --font-mono:   'DM Mono', monospace;
+  --nav-h:       64px;
+  --page-x:      clamp(20px, 4vw, 64px);
+  --shadow-sm:   0 1px 4px rgba(15,25,35,0.08);
+  --shadow-md:   0 4px 16px rgba(15,25,35,0.10);
+  --shadow-lg:   0 8px 32px rgba(15,25,35,0.13);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--cream);
+  color: var(--navy);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; }
+
+.page-enter { animation: pageEnter 0.4s ease both; }
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--cream); }
+::-webkit-scrollbar-thumb { background: var(--cream-dark); border-radius: 3px; }
